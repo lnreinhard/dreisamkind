@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>dreisamkind</title>
+  <title>Dreisamkind</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@200&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -14,155 +14,294 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
+      background: #1a0535;
     }
 
-    body {
-      background: radial-gradient(ellipse at 50% 44%, #ffffff 0%, #eaf1f7 45%, #d8e8f2 100%);
-      font-family: 'Raleway', sans-serif;
-    }
-
-    canvas {
+    #blinds {
       position: fixed;
       inset: 0;
+      overflow: hidden;
+    }
+
+    #blinds canvas {
+      display: block;
       width: 100%;
       height: 100%;
-      pointer-events: none;
-      z-index: 1;
     }
 
     .stage {
       position: fixed;
       inset: 0;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      pointer-events: none;
+      gap: 20px;
       z-index: 10;
+      pointer-events: none;
+    }
+
+    /* liquid glass tag */
+    .tag {
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      border-radius: 100px;
+      padding: 7px 22px;
+      color: rgba(255, 255, 255, 0.88);
+      font-family: 'Montserrat', sans-serif;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.30),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.10),
+        0 8px 32px rgba(0, 0, 0, 0.20);
     }
 
     .word {
-      font-size: 17px;
-      font-weight: 200;
-      letter-spacing: 0.38em;
-      text-transform: lowercase;
-      color: rgba(30, 60, 90, 0.75);
-      filter: url(#liquid);
+      font-family: 'Montserrat', sans-serif;
+      font-size: 52px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: #ffffff;
       user-select: none;
     }
   </style>
 </head>
 <body>
 
-<svg width="0" height="0" style="position:absolute;overflow:hidden">
-  <defs>
-    <filter id="liquid" x="-40%" y="-40%" width="180%" height="180%">
-      <feTurbulence type="turbulence"
-        baseFrequency="0.016 0.020" numOctaves="3" seed="7" result="noise">
-        <animate attributeName="baseFrequency"
-          values="0.016 0.020; 0.024 0.014; 0.018 0.028; 0.016 0.020"
-          dur="10s" repeatCount="indefinite"/>
-      </feTurbulence>
-      <feDisplacementMap in="SourceGraphic" in2="noise"
-        scale="10" xChannelSelector="R" yChannelSelector="G"/>
-    </filter>
-  </defs>
-</svg>
-
-<canvas id="fx"></canvas>
+<div id="blinds"></div>
 
 <div class="stage">
-  <span class="word">dreisamkind</span>
+  <div class="tag">coming soon</div>
+  <span class="word">Dreisamkind</span>
 </div>
 
-<script>
-const canvas = document.getElementById('fx');
-const ctx    = canvas.getContext('2d');
-const DPR    = Math.min(devicePixelRatio, 2);
+<script type="module">
+import { Renderer, Program, Mesh, Triangle } from 'https://esm.sh/ogl';
 
-let W, H;
+// ── config ─────────────────────────────────────────────────────────────────
+const GRADIENT_COLORS  = ['#FF9FFC', '#5227FF'];
+const ANGLE            = 0;
+const NOISE            = 0.3;
+const BLIND_COUNT      = 12;
+const BLIND_MIN_WIDTH  = 50;
+const MOUSE_DAMPENING  = 0.15;
+const SPOTLIGHT_RADIUS = 0.5;
+const SPOTLIGHT_SOFT   = 1;
+const SPOTLIGHT_OPC    = 1;
+const MIRROR_GRADIENT  = false;
+const DISTORT          = 0;
+const SHINE_DIR        = 'left';
+
+// ── helpers ────────────────────────────────────────────────────────────────
+const MAX_COLORS = 8;
+
+const hexToRGB = hex => {
+  const c = hex.replace('#', '').padEnd(6, '0');
+  return [
+    parseInt(c.slice(0, 2), 16) / 255,
+    parseInt(c.slice(2, 4), 16) / 255,
+    parseInt(c.slice(4, 6), 16) / 255,
+  ];
+};
+
+const prepStops = stops => {
+  const base = (stops?.length ? stops : ['#FF9FFC', '#5227FF']).slice(0, MAX_COLORS);
+  if (base.length === 1) base.push(base[0]);
+  while (base.length < MAX_COLORS) base.push(base[base.length - 1]);
+  const count = Math.max(2, Math.min(MAX_COLORS, stops?.length ?? 2));
+  return { arr: base.map(hexToRGB), count };
+};
+
+// ── renderer ───────────────────────────────────────────────────────────────
+const container = document.getElementById('blinds');
+const renderer  = new Renderer({ dpr: window.devicePixelRatio || 1, alpha: true, antialias: true });
+const gl        = renderer.gl;
+const canvas    = gl.canvas;
+canvas.style.cssText = 'display:block;width:100%;height:100%;';
+container.appendChild(canvas);
+
+// ── shaders ────────────────────────────────────────────────────────────────
+const vertex = /* glsl */`
+attribute vec2 position;
+attribute vec2 uv;
+varying vec2 vUv;
+void main() {
+  vUv = uv;
+  gl_Position = vec4(position, 0.0, 1.0);
+}`;
+
+const fragment = /* glsl */`
+#ifdef GL_ES
+precision mediump float;
+#endif
+
+uniform vec3  iResolution;
+uniform vec2  iMouse;
+uniform float iTime;
+uniform float uAngle;
+uniform float uNoise;
+uniform float uBlindCount;
+uniform float uSpotlightRadius;
+uniform float uSpotlightSoftness;
+uniform float uSpotlightOpacity;
+uniform float uMirror;
+uniform float uDistort;
+uniform float uShineFlip;
+uniform vec3  uColor0, uColor1, uColor2, uColor3;
+uniform vec3  uColor4, uColor5, uColor6, uColor7;
+uniform int   uColorCount;
+
+varying vec2 vUv;
+
+float rand(vec2 co) {
+  return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+vec2 rotate2D(vec2 p, float a) {
+  float c = cos(a), s = sin(a);
+  return mat2(c, -s, s, c) * p;
+}
+
+vec3 gradientColor(float t) {
+  float tt = clamp(t, 0.0, 1.0);
+  int n = uColorCount < 2 ? 2 : uColorCount;
+  float sc = tt * float(n - 1);
+  float sg = floor(sc);
+  float f  = fract(sc);
+  if (sg < 1.0)              return mix(uColor0, uColor1, f);
+  if (sg < 2.0 && n > 2)    return mix(uColor1, uColor2, f);
+  if (sg < 3.0 && n > 3)    return mix(uColor2, uColor3, f);
+  if (sg < 4.0 && n > 4)    return mix(uColor3, uColor4, f);
+  if (sg < 5.0 && n > 5)    return mix(uColor4, uColor5, f);
+  if (sg < 6.0 && n > 6)    return mix(uColor5, uColor6, f);
+  if (sg < 7.0 && n > 7)    return mix(uColor6, uColor7, f);
+  if (n > 7) return uColor7; if (n > 6) return uColor6;
+  if (n > 5) return uColor5; if (n > 4) return uColor4;
+  if (n > 3) return uColor3; if (n > 2) return uColor2;
+  return uColor1;
+}
+
+void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+  vec2 uv0    = fragCoord / iResolution.xy;
+  float asp   = iResolution.x / iResolution.y;
+  vec2 p      = uv0 * 2.0 - 1.0;
+  p.x        *= asp;
+  vec2 pr     = rotate2D(p, uAngle);
+  pr.x       /= asp;
+  vec2 uv     = pr * 0.5 + 0.5;
+  vec2 uvM    = uv;
+
+  if (uDistort > 0.0) {
+    float w = 0.01 * uDistort;
+    uvM.x  += sin(uvM.y * 6.0) * w;
+    uvM.y  += cos(uvM.x * 6.0) * w;
+  }
+
+  float t = uMirror > 0.5 ? 1.0 - abs(1.0 - 2.0 * fract(uvM.x)) : uvM.x;
+  vec3 base = gradientColor(t);
+
+  vec2 off  = vec2(iMouse.x / iResolution.x, iMouse.y / iResolution.y);
+  float d   = length(uv0 - off);
+  float dn  = d / max(uSpotlightRadius, 1e-4);
+  float spot = (1.0 - 2.0 * pow(dn, uSpotlightSoftness)) * uSpotlightOpacity;
+
+  float stripe = fract(uvM.x * max(uBlindCount, 1.0));
+  if (uShineFlip > 0.5) stripe = 1.0 - stripe;
+
+  vec3 col = vec3(spot) + base - vec3(stripe);
+  col += (rand(gl_FragCoord.xy + iTime) - 0.5) * uNoise;
+  fragColor = vec4(col, 1.0);
+}
+
+void main() {
+  vec4 color;
+  mainImage(color, vUv * iResolution.xy);
+  gl_FragColor = color;
+}`;
+
+// ── uniforms ───────────────────────────────────────────────────────────────
+const { arr: colorArr, count: colorCount } = prepStops(GRADIENT_COLORS);
+const uniforms = {
+  iResolution:        { value: [gl.drawingBufferWidth, gl.drawingBufferHeight, 1] },
+  iMouse:             { value: [0, 0] },
+  iTime:              { value: 0 },
+  uAngle:             { value: (ANGLE * Math.PI) / 180 },
+  uNoise:             { value: NOISE },
+  uBlindCount:        { value: Math.max(1, BLIND_COUNT) },
+  uSpotlightRadius:   { value: SPOTLIGHT_RADIUS },
+  uSpotlightSoftness: { value: SPOTLIGHT_SOFT },
+  uSpotlightOpacity:  { value: SPOTLIGHT_OPC },
+  uMirror:            { value: MIRROR_GRADIENT ? 1 : 0 },
+  uDistort:           { value: DISTORT },
+  uShineFlip:         { value: SHINE_DIR === 'right' ? 1 : 0 },
+  uColor0:            { value: colorArr[0] },
+  uColor1:            { value: colorArr[1] },
+  uColor2:            { value: colorArr[2] },
+  uColor3:            { value: colorArr[3] },
+  uColor4:            { value: colorArr[4] },
+  uColor5:            { value: colorArr[5] },
+  uColor6:            { value: colorArr[6] },
+  uColor7:            { value: colorArr[7] },
+  uColorCount:        { value: colorCount },
+};
+
+const program  = new Program(gl, { vertex, fragment, uniforms });
+const geometry = new Triangle(gl);
+const mesh     = new Mesh(gl, { geometry, program });
+
+// ── resize ─────────────────────────────────────────────────────────────────
+const mouseTarget = [0, 0];
+let firstResize = true;
 
 function resize() {
-  W = window.innerWidth;
-  H = window.innerHeight;
-  canvas.width  = W * DPR;
-  canvas.height = H * DPR;
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const rect = container.getBoundingClientRect();
+  renderer.setSize(rect.width, rect.height);
+  uniforms.iResolution.value = [gl.drawingBufferWidth, gl.drawingBufferHeight, 1];
+
+  const maxBlinds = Math.max(1, Math.floor(rect.width / BLIND_MIN_WIDTH));
+  uniforms.uBlindCount.value = Math.max(1, Math.min(BLIND_COUNT, maxBlinds));
+
+  if (firstResize) {
+    firstResize = false;
+    const cx = gl.drawingBufferWidth  / 2;
+    const cy = gl.drawingBufferHeight / 2;
+    uniforms.iMouse.value = [cx, cy];
+    mouseTarget[0] = cx;
+    mouseTarget[1] = cy;
+  }
 }
 resize();
-window.addEventListener('resize', resize);
+new ResizeObserver(resize).observe(container);
 
-const ripples = [];
-const blooms  = [];
-let px = -99, py = -99;
-
-document.addEventListener('mousemove', e => {
-  const mx = e.clientX, my = e.clientY;
-
-  if (Math.random() < 0.3)
-    ripples.push({ x: mx, y: my, r: 1, maxR: 75 + Math.random() * 65, life: 1 });
-
-  const d = Math.hypot(mx - px, my - py);
-  if (d > 10) {
-    px = mx; py = my;
-    const n = 1 + Math.floor(Math.random() * 2);
-    for (let i = 0; i < n; i++) {
-      blooms.push({
-        x:    mx + (Math.random() - 0.5) * 20,
-        y:    my + (Math.random() - 0.5) * 20,
-        r:    6,
-        maxR: 70 + Math.random() * 70,
-        life: 1,
-        hue:  200 + Math.random() * 25,
-      });
-    }
-  }
+// ── mouse ──────────────────────────────────────────────────────────────────
+canvas.addEventListener('pointermove', e => {
+  const rect  = canvas.getBoundingClientRect();
+  const scale = renderer.dpr || 1;
+  mouseTarget[0] = (e.clientX - rect.left) * scale;
+  mouseTarget[1] = (rect.height - (e.clientY - rect.top)) * scale;
 });
 
-document.addEventListener('click', e => {
-  for (let i = 0; i < 5; i++)
-    ripples.push({ x: e.clientX, y: e.clientY, r: 1, maxR: 40 + i * 38, life: 1 });
-});
-
-(function loop() {
-  ctx.clearRect(0, 0, W, H);
-
-  // soft watercolor blooms
-  for (let i = blooms.length - 1; i >= 0; i--) {
-    const b = blooms[i];
-    b.r     = Math.min(b.r + 0.65, b.maxR);
-    b.life -= 0.0045;
-    if (b.life <= 0) { blooms.splice(i, 1); continue; }
-
-    const progress = b.r / b.maxR;
-    const a = b.life * 0.14 * Math.pow(1 - progress, 0.6);
-
-    const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r);
-    g.addColorStop(0,    `hsla(${b.hue}, 55%, 58%, ${a})`);
-    g.addColorStop(0.45, `hsla(${b.hue}, 50%, 62%, ${a * 0.5})`);
-    g.addColorStop(1,    `hsla(${b.hue}, 45%, 65%, 0)`);
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // ripple rings
-  for (let i = ripples.length - 1; i >= 0; i--) {
-    const rp = ripples[i];
-    rp.r    += 2.4;
-    rp.life -= 0.015;
-    if (rp.life <= 0 || rp.r > rp.maxR) { ripples.splice(i, 1); continue; }
-
-    const a = rp.life * (1 - rp.r / rp.maxR) * 0.45;
-    ctx.beginPath();
-    ctx.arc(rp.x, rp.y, rp.r, 0, Math.PI * 2);
-    ctx.strokeStyle = `rgba(40, 110, 180, ${a})`;
-    ctx.lineWidth = 1;
-    ctx.stroke();
-  }
-
+// ── loop ───────────────────────────────────────────────────────────────────
+let lastTime = 0;
+(function loop(t) {
   requestAnimationFrame(loop);
-})();
+  uniforms.iTime.value = t * 0.001;
+
+  const dt  = lastTime ? (t - lastTime) / 1000 : 0;
+  lastTime  = t;
+  const tau = Math.max(1e-4, MOUSE_DAMPENING);
+  const k   = Math.min(1, 1 - Math.exp(-dt / tau));
+  const cur = uniforms.iMouse.value;
+  cur[0] += (mouseTarget[0] - cur[0]) * k;
+  cur[1] += (mouseTarget[1] - cur[1]) * k;
+
+  renderer.render({ scene: mesh });
+})(0);
 </script>
 </body>
 </html>
