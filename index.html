@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>dreisamkind</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@200&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      background: radial-gradient(ellipse at 50% 44%, #ffffff 0%, #eaf1f7 45%, #d8e8f2 100%);
+      font-family: 'Raleway', sans-serif;
+    }
+
+    canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .stage {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .word {
+      font-size: 17px;
+      font-weight: 200;
+      letter-spacing: 0.38em;
+      text-transform: lowercase;
+      color: rgba(30, 60, 90, 0.75);
+      filter: url(#liquid);
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute;overflow:hidden">
+  <defs>
+    <filter id="liquid" x="-40%" y="-40%" width="180%" height="180%">
+      <feTurbulence type="turbulence"
+        baseFrequency="0.016 0.020" numOctaves="3" seed="7" result="noise">
+        <animate attributeName="baseFrequency"
+          values="0.016 0.020; 0.024 0.014; 0.018 0.028; 0.016 0.020"
+          dur="10s" repeatCount="indefinite"/>
+      </feTurbulence>
+      <feDisplacementMap in="SourceGraphic" in2="noise"
+        scale="10" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
+</svg>
+
+<canvas id="fx"></canvas>
+
+<div class="stage">
+  <span class="word">dreisamkind</span>
+</div>
+
+<script>
+const canvas = document.getElementById('fx');
+const ctx    = canvas.getContext('2d');
+const DPR    = Math.min(devicePixelRatio, 2);
+
+let W, H;
+
+function resize() {
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width  = W * DPR;
+  canvas.height = H * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+resize();
+window.addEventListener('resize', resize);
+
+const ripples = [];
+const blooms  = [];
+let px = -99, py = -99;
+
+document.addEventListener('mousemove', e => {
+  const mx = e.clientX, my = e.clientY;
+
+  if (Math.random() < 0.3)
+    ripples.push({ x: mx, y: my, r: 1, maxR: 75 + Math.random() * 65, life: 1 });
+
+  const d = Math.hypot(mx - px, my - py);
+  if (d > 10) {
+    px = mx; py = my;
+    const n = 1 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < n; i++) {
+      blooms.push({
+        x:    mx + (Math.random() - 0.5) * 20,
+        y:    my + (Math.random() - 0.5) * 20,
+        r:    6,
+        maxR: 70 + Math.random() * 70,
+        life: 1,
+        hue:  200 + Math.random() * 25,
+      });
+    }
+  }
+});
+
+document.addEventListener('click', e => {
+  for (let i = 0; i < 5; i++)
+    ripples.push({ x: e.clientX, y: e.clientY, r: 1, maxR: 40 + i * 38, life: 1 });
+});
+
+(function loop() {
+  ctx.clearRect(0, 0, W, H);
+
+  // soft watercolor blooms
+  for (let i = blooms.length - 1; i >= 0; i--) {
+    const b = blooms[i];
+    b.r     = Math.min(b.r + 0.65, b.maxR);
+    b.life -= 0.0045;
+    if (b.life <= 0) { blooms.splice(i, 1); continue; }
+
+    const progress = b.r / b.maxR;
+    const a = b.life * 0.14 * Math.pow(1 - progress, 0.6);
+
+    const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r);
+    g.addColorStop(0,    `hsla(${b.hue}, 55%, 58%, ${a})`);
+    g.addColorStop(0.45, `hsla(${b.hue}, 50%, 62%, ${a * 0.5})`);
+    g.addColorStop(1,    `hsla(${b.hue}, 45%, 65%, 0)`);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // ripple rings
+  for (let i = ripples.length - 1; i >= 0; i--) {
+    const rp = ripples[i];
+    rp.r    += 2.4;
+    rp.life -= 0.015;
+    if (rp.life <= 0 || rp.r > rp.maxR) { ripples.splice(i, 1); continue; }
+
+    const a = rp.life * (1 - rp.r / rp.maxR) * 0.45;
+    ctx.beginPath();
+    ctx.arc(rp.x, rp.y, rp.r, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(40, 110, 180, ${a})`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
