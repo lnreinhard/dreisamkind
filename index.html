@@ -23,7 +23,10 @@
 
     #blinds {
       position: fixed;
-      inset: 0;
+      top: calc(-1 * env(safe-area-inset-top, 0px));
+      left: calc(-1 * env(safe-area-inset-left, 0px));
+      right: calc(-1 * env(safe-area-inset-right, 0px));
+      bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
       overflow: hidden;
       background: #1a0535;
     }
@@ -264,12 +267,13 @@ const mouseTarget = [0, 0];
 let firstResize = true;
 
 function resize() {
-  const w = document.documentElement.clientWidth;
-  const h = document.documentElement.clientHeight;
-  renderer.setSize(w, h);
+  const rect = container.getBoundingClientRect();
+  renderer.setSize(rect.width, rect.height);
+  canvas.style.width  = '100%';
+  canvas.style.height = '100%';
   uniforms.iResolution.value = [gl.drawingBufferWidth, gl.drawingBufferHeight, 1];
 
-  const maxBlinds = Math.max(1, Math.floor(w / BLIND_MIN_WIDTH));
+  const maxBlinds = Math.max(1, Math.floor(rect.width / BLIND_MIN_WIDTH));
   uniforms.uBlindCount.value = Math.max(1, Math.min(BLIND_COUNT, maxBlinds));
 
   if (firstResize) {
