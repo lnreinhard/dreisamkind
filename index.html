@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0418">
   <title>Dreisamkind</title>
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
@@ -18,26 +19,7 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background: #00ff00; /* DEBUG: lime — shows where canvas isn't covering */
-    }
-
-    /* DEBUG: red inner border on the canvas reveals its exact extent */
-    canvas {
-      box-shadow: inset 0 0 0 4px red !important;
-    }
-
-    .debug-readout {
-      position: fixed;
-      top: max(10px, env(safe-area-inset-top));
-      left: max(10px, env(safe-area-inset-left));
-      z-index: 9999;
-      font: 11px/1.35 ui-monospace, Menlo, monospace;
-      color: #fff;
-      background: rgba(0,0,0,0.72);
-      padding: 8px 10px;
-      border-radius: 6px;
-      pointer-events: none;
-      white-space: pre;
+      background: #0a0418;
     }
 
     .stage {
@@ -88,7 +70,6 @@
   <div class="tag">coming soon</div>
   <span class="word">Dreisamkind</span>
 </div>
-<div class="debug-readout" id="debug"></div>
 
 <script type="module">
 import { Renderer, Program, Mesh, Triangle } from 'https://esm.sh/ogl';
@@ -295,36 +276,6 @@ function resize() {
 resize();
 window.addEventListener('resize', resize);
 if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
-
-// DEBUG readout — remove once diagnosed
-function updateDebug() {
-  const el = document.getElementById('debug');
-  if (!el) return;
-  const vv = window.visualViewport;
-  const de = document.documentElement;
-  const cs = getComputedStyle(de);
-  const safe = k => cs.getPropertyValue(`--saf-${k}`).trim() || '?';
-  const cr  = canvas.getBoundingClientRect();
-  el.textContent =
-    `screen     ${screen.width} x ${screen.height}\n` +
-    `innerW/H   ${innerWidth} x ${innerHeight}\n` +
-    `visualVP   ${vv ? vv.width.toFixed(0)+' x '+vv.height.toFixed(0) : '—'}  off ${vv ? vv.offsetTop.toFixed(0) : '—'}\n` +
-    `de.client  ${de.clientWidth} x ${de.clientHeight}\n` +
-    `canvas     ${cr.width.toFixed(0)} x ${cr.height.toFixed(0)}  @${cr.left.toFixed(0)},${cr.top.toFixed(0)}\n` +
-    `dpr        ${devicePixelRatio}\n` +
-    `safe T/B   ${safe('t')} / ${safe('b')}`;
-}
-de_set_safe_props();
-function de_set_safe_props() {
-  // expose env() values to JS via custom CSS props
-  const s = document.createElement('style');
-  s.textContent = ':root{--saf-t:env(safe-area-inset-top);--saf-b:env(safe-area-inset-bottom);}';
-  document.head.appendChild(s);
-}
-updateDebug();
-window.addEventListener('resize', updateDebug);
-if (window.visualViewport) window.visualViewport.addEventListener('resize', updateDebug);
-setInterval(updateDebug, 500);
 
 // ── mouse ──────────────────────────────────────────────────────────────────
 canvas.addEventListener('pointermove', e => {
