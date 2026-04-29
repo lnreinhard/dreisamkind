@@ -25,6 +25,7 @@
       position: fixed;
       inset: 0;
       overflow: hidden;
+      background: #1a0535;
     }
 
     #blinds canvas {
@@ -263,11 +264,12 @@ const mouseTarget = [0, 0];
 let firstResize = true;
 
 function resize() {
-  const rect = container.getBoundingClientRect();
-  renderer.setSize(rect.width, rect.height);
+  const w = document.documentElement.clientWidth;
+  const h = document.documentElement.clientHeight;
+  renderer.setSize(w, h);
   uniforms.iResolution.value = [gl.drawingBufferWidth, gl.drawingBufferHeight, 1];
 
-  const maxBlinds = Math.max(1, Math.floor(rect.width / BLIND_MIN_WIDTH));
+  const maxBlinds = Math.max(1, Math.floor(w / BLIND_MIN_WIDTH));
   uniforms.uBlindCount.value = Math.max(1, Math.min(BLIND_COUNT, maxBlinds));
 
   if (firstResize) {
@@ -280,7 +282,7 @@ function resize() {
   }
 }
 resize();
-new ResizeObserver(resize).observe(container);
+window.addEventListener('resize', resize);
 
 // ── mouse ──────────────────────────────────────────────────────────────────
 canvas.addEventListener('pointermove', e => {
