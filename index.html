@@ -108,15 +108,15 @@
 </div>
 
 <button class="bg-toggle" aria-label="Hintergrund wechseln">
-  <span class="dot active" id="dot0"></span>
-  <span class="dot" id="dot1"></span>
+  <span class="dot" id="dot0"></span>
+  <span class="dot active" id="dot1"></span>
 </button>
 
 <script type="module">
 import { Renderer, Program, Mesh, Triangle } from 'https://esm.sh/ogl';
 
 // ── shared state ───────────────────────────────────────────────────────────
-let activeBg = 'blinds'; // 'blinds' | 'waves'
+let activeBg = 'waves'; // 'blinds' | 'waves'
 
 // ══════════════════════════════════════════════════════════════════════════
 // GRADIENT BLINDS
@@ -160,7 +160,7 @@ const prepStops = stops => {
 const renderer = new Renderer({ dpr: window.devicePixelRatio || 1, alpha: true, antialias: true });
 const gl       = renderer.gl;
 const canvas   = gl.canvas;
-canvas.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;display:block;opacity:1;transition:opacity 0.6s ease;pointer-events:auto;';
+canvas.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;display:block;opacity:0;transition:opacity 0.6s ease;pointer-events:none;';
 document.body.insertBefore(canvas, document.body.firstChild);
 
 // ── shaders ────────────────────────────────────────────────────────────────
@@ -362,9 +362,9 @@ const LW_ROTATION        = -45;
 const LW_EDGE_FADE       = 0.0;
 const LW_COLOR_CYCLE     = 1.0;
 const LW_BRIGHTNESS      = 0.2;
-const LW_COLOR1          = '#ffffff';
-const LW_COLOR2          = '#ffffff';
-const LW_COLOR3          = '#ffffff';
+const LW_COLOR1          = '#5227FF';
+const LW_COLOR2          = '#94a3b8';
+const LW_COLOR3          = '#3b82f6';
 const LW_MOUSE_INFLUENCE = 2.0;
 
 const hexToVec3 = hex => {
@@ -381,7 +381,7 @@ const lwRenderer = new Renderer({ dpr: window.devicePixelRatio || 1, alpha: true
 const lwGl = lwRenderer.gl;
 lwGl.clearColor(0, 0, 0, 0);
 const wavesCanvas = lwGl.canvas;
-wavesCanvas.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;display:block;opacity:0;transition:opacity 0.6s ease;pointer-events:none;';
+wavesCanvas.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;display:block;opacity:1;transition:opacity 0.6s ease;pointer-events:auto;';
 document.body.insertBefore(wavesCanvas, document.body.firstChild);
 
 // ── shaders ────────────────────────────────────────────────────────────────
